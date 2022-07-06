@@ -1,1 +1,1 @@
-# SmartCalc_School_21
+# ZhiNeng_Qi
