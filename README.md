@@ -1,1 +1,1 @@
-# ZhiNeng_Qi
+#  Smart-Calculator S21
