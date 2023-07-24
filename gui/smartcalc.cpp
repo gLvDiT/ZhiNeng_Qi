@@ -3,12 +3,8 @@
 
 SmartCalc::SmartCalc(QWidget *parent) : QMainWindow(parent), ui(new Ui::SmartCalc) {
     ui->setupUi(this);
-    setWindowTitle("SmartCalc v2.0");
-    setWindowOpacity(0.98);
-    setMinimumSize(685, 450);
-    setMaximumSize(685, 450);
-
     createForm();
+    graphForm_flag = false;
 }
 
 SmartCalc::~SmartCalc() {
@@ -17,61 +13,143 @@ SmartCalc::~SmartCalc() {
 
 void SmartCalc::digitClicked() {
     QString clickedNum = ((QPushButton*)sender())->text();
-    if (clickedNum == "\u03C0") {
-        long double pi = 3.1415926535897932384626433832795;
-        ui->lineEdit->setText(ui->lineEdit->text() + QString(std::to_string(pi).c_str()));
-    } else {
-        ui->lineEdit->setText(ui->lineEdit->text() + clickedNum);
-    }
+    QString cur_str = ui->lineEdit->text();
+    if (!cur_str.endsWith(")")) {
+        ui->lineEdit->setText((ui->lineEdit->text() == "0" ? "" :
+            ui->lineEdit->text()) + clickedNum);
+    }  // add operation condition
 }
 
 void SmartCalc::functionsClicked() {
-    QPushButton *clickedButton = qobject_cast<QPushButton *>(sender());
-    ui->lineEdit->setText(ui->lineEdit->text() + clickedButton->text() + "(");
+    QPushButton* clickedButton = qobject_cast <QPushButton*> (sender());
+    QString cur_str = ui->lineEdit->text();
+    QString sep = ".";
+    int flag = cur_str.endsWith("+") || cur_str.endsWith("-") ||
+        cur_str.endsWith("/") || cur_str.endsWith("^") || cur_str.endsWith("*") ||
+        cur_str.endsWith(" mod ") || cur_str.isEmpty() || cur_str.endsWith("(") ? TRUE : FALSE;
+    if (flag) {
+        if (clickedButton->text() != "\u221A")
+            ui->lineEdit->setText(ui->lineEdit->text() + clickedButton->text() + "(");
+        else
+            ui->lineEdit->setText(ui->lineEdit->text() + "sqrt" + "(");
+    }
 }
 
 void SmartCalc::operationsClicked() {
-    QPushButton *clickedButton = qobject_cast<QPushButton *>(sender());
+    QPushButton* clickedButton = qobject_cast <QPushButton*> (sender());
     QString cur_str = ui->lineEdit->text();
+    QString sep = ".";
+    int flag = cur_str.endsWith("+") || cur_str.endsWith("-") ||
+        cur_str.endsWith("/") || cur_str.endsWith("^") || cur_str.endsWith("*") ||
+        cur_str.endsWith(" mod ") || cur_str.isEmpty() ||
+        cur_str.endsWith(sep) || cur_str.endsWith("(") ? FALSE : TRUE;
 
-    bool flag = cur_str.endsWith("+") || cur_str.endsWith("-") || cur_str.endsWith("/") || cur_str.endsWith("÷")
-            || cur_str.endsWith("*") || cur_str.endsWith("x") || cur_str.endsWith("^")
-            || cur_str.endsWith("%") || cur_str.isEmpty() ? false : true;
-
-
-    if (clickedButton->text() == "+" && flag)
+    if (clickedButton->text() == "+" && (flag || cur_str.endsWith("(")))
         ui->lineEdit->setText(cur_str + "+");
-    else if (clickedButton->text() == "-" && flag)
+    else if (clickedButton->text() == "-" && (flag || cur_str.endsWith("(")))
         ui->lineEdit->setText(cur_str + "-");
-    else if (clickedButton->text() == "\u00D7" && flag)
-        ui->lineEdit->setText(cur_str + QString::fromUtf8("\u00D7"));
     else if (clickedButton->text() == "\u00F7" && flag)
         ui->lineEdit->setText(cur_str + "/");
-    else if (clickedButton->text() == "^" && flag)
+    else if (clickedButton->text() == "x\u207F" && flag)
         ui->lineEdit->setText(cur_str + "^");
     else if (clickedButton->text() == "%" && flag)
-        ui->lineEdit->setText(cur_str + "%");
-    else if (clickedButton->text() == "(")
+        ui->lineEdit->setText(cur_str + " mod ");
+    else if (clickedButton->text() == "(" && !flag && !cur_str.endsWith(sep))
         ui->lineEdit->setText(cur_str + "(");
-    else if (clickedButton->text() == ")")
+    else if (clickedButton->text() == ")" && flag)
         ui->lineEdit->setText(cur_str + ")");
+    else if (clickedButton->text() == "*" && flag)
+        ui->lineEdit->setText(cur_str + "*");
+    else if (cur_str.isEmpty() && clickedButton->text() == "-")
+        ui->lineEdit->setText("-");
+    else if (cur_str.isEmpty() && clickedButton->text() == "+")
+        ui->lineEdit->setText("+");
+    else if (clickedButton->text() == sep && flag)
+        ui->lineEdit->setText(cur_str + sep);
 }
 
 void SmartCalc::equalClicked() {
-    qDebug() << "func in process";
+    unsigned int str_length = ui->lineEdit->text().length();
+    char* str = new char(str_length);
+    my_str* str_pol = NULL;
+    my_str* pol_ind;
+    str_pol = NULL;
+    QByteArray strL = ui->lineEdit->text().toLatin1();
+    strncpy(str, strL, str_length + 1);
+    double ans = 0.0;
+    // Польской нотации нет, обозначить, чтобы написал
+    if (Notation(&str_pol, str)) {
+        if (ui->lineEdit->text().contains("X")) {
+            if (MinX->text().isEmpty() || MaxX->text().isEmpty())
+                errorMsg("Enter the AREAS!");
+            // else if ()
+            //   errorMsg("Ошибка в выражение");
+            else
+                makeGraph(str_pol);
+        }
+        else if (calc(str_pol, &ans, 0.0)) {
+            // QString result;
+            // QByteArray resultL = "";
+            // while (str_pol != NULL) {
+            // resultL += QByteArray((char*)str_pol->info, strlen(str_pol->info));
+            // str_pol =str_pol->next;
+            // }
+            // result = resultL;
+            QString result = QString::number(ans);
+            ui->lineEdit->setText(result);
+        }
+        else if (str_length > 255) {
+            ui->lineEdit->setText("ERROR. More than 255 characters entered");
+        }
+        else {
+            ui->lineEdit->setText("ERROR");
+        }
+    }
+    else {
+        ui->lineEdit->setText("ERROR");
+    }
+    delete(str);
 }
-
-void SmartCalc::dotClicked() {
-    QString sep = ",";
-    #ifdef _WIN32
-    sep = ".";
-    #endif
-    if (!ui->lineEdit->text().endsWith(".") && !ui->lineEdit->text().endsWith(","))
-        ui->lineEdit->setText(ui->lineEdit->text() + sep);
+ 
+//  обозначить, что функции CALC нет и ее необходимо сделать
+void SmartCalc::makeGraph(my_str* str_pol) {
+    double left = MinX->text().toDouble();
+    double right = MaxX->text().toDouble();
+    QVector < double > y(1000), x(1000);
+    int stat = 1;
+    for (int i = 0; i < 1000; i++) {
+        x[i] = (i == 0) ? left : x[i - 1] + (right - left) / 1000;
+        double buf_y = 0.0;
+        double buf_x = x[i];
+        if (!calc(str_pol, &buf_y, buf_x)) {
+            stat = 0;
+            break;
+        }
+        y[i] = buf_y;
+    }
+    if (stat) {
+        QCustomPlot* graphPlot = widget;
+        graphPlot->addGraph();
+        graphPlot->graph(0)->setData(x, y);
+        // give the axes some labels:
+        graphPlot->xAxis->setLabel("x");
+        graphPlot->yAxis->setLabel("y");
+        // set axes ranges, so we see all data:
+        graphPlot->xAxis->setRange(left, right);
+        graphPlot->yAxis->setRange(*std::min_element(y.begin(), y.end()),
+            *std::max_element(y.begin(), y.end()));
+        graphPlot->replot();
+    }
+    else {
+        QMessageBox msgText;
+        msgText.setText("Incorrect numeric entry! Try again.");
+        msgText.exec();
+    }
 }
 
 void SmartCalc::clearClicked() {
-    ui->lineEdit->setText("0");
+    QString cur_str = "";
+    ui->lineEdit->setText(cur_str);
 }
 
 void SmartCalc::backspaceClicked() {
